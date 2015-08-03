@@ -156,8 +156,8 @@ def parse_man_pages(files):
     except IOError, e:
         print e
         
-    files = []
-    files.append("/usr/share/man/man8/rpm.8.gz")
+    #files = []
+    #files.append("/usr/share/man/man8/rpm.8.gz")
     # Check all files.
     for file_path in files:
         """ zcat " + f + " | groff -mandoc -Tutf8
