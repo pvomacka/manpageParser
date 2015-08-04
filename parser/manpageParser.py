@@ -100,10 +100,9 @@ def parse_one_page(content):
 
     # \u001B is escape character
     content = re.sub(u"\u001B\[[^-]*?;?[^-]*?m", "", content)
-    #print(content)
-
+    
     # Create regular expression for getting flags from file
-    flag_regex = re.compile("(?:\n\s{2,}(-{1,2}[^-][?\w-]+)(?:(?:,\s(-{1,2}[?\w-]+))|(?:.*?\s(-{1,2}[?\w-]+)))?)|(?:[\[\{](\-{1,2}[^ ]*?)[\|,\]\}](?:(\-{1,2}[^ ]*?)[\]\}])?)+")
+    flag_regex = re.compile("(?:\n?\s{2,}(-{1,2}[^-][?\w-]*)(?:(?:,?\s(-{1,2}[?\w-]+))|(?:.*?\s(-{1,2}[?\w-]+)))?)|(?:[\[\{](\-{1,2}[^ ]*?)[\|,\]\}](?:(\-{1,2}[^ ]*?)[\]\}])?)+")
     flag_list = flag_regex.findall(content)
 
     # Prepare empty list.
@@ -156,7 +155,8 @@ def parse_man_pages(files):
         f = open(file_name, "a")
     except IOError, e:
         print e
-
+    #files = []
+    #files.append("/usr/share/man/man8/mount.8.gz")
     # Check all files.
     for file_path in files:
         """ zcat " + f + " | groff -mandoc -Tutf8
