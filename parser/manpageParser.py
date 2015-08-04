@@ -33,12 +33,12 @@ from shlex import split
 file_name = "parsed_manpages.txt"
 
 
-""" 
+"""
     Function that fetch all needed directory names.
 """
 def get_directories():
     directories = []
-    
+
     # Load all directories and files in /usr/share/man.
     for root, dirs, files in os.walk('/usr/share/man'):
         # Go through all directory names
@@ -48,13 +48,13 @@ def get_directories():
             if dirRegexp.match(directory) is None:
                 # Skip all directories which does not match regexp
                 continue;
-            
+
             # All directories names which match the regexp concatenate with path
             # and save them into list.
             directories.append(root + "/" + directory)
         # Do not go deeper into subdirectories.
         break
-    
+
     # Return list with directories
     return directories
 
@@ -64,7 +64,7 @@ def get_directories():
 """
 def get_file_names(directories):
     files = []
-    
+
     # Go through all directories
     for directory in directories:
         # Fetch all directories and files in current directory
@@ -86,11 +86,10 @@ def parse_name(content):
     # Get name of manual page
     just_name = name_regex.search(content)
     name_str = ""
-    
+
     if just_name != None:
         name_str = just_name.group(1)
-    #print("NAME: " + just_name)
-    
+
     return name_str
 
 
@@ -98,13 +97,13 @@ def parse_name(content):
     Parse flags from manpage which is in content parameter.
 """
 def parse_one_page(content):
-    
+
     # \u001B is escape character
     content = re.sub(u"\u001B\[[^-]*?;?[^-]*?m", "", content)
     #print(content)
-        
+
     # Create regular expression for getting flags from file
-    flag_regex = re.compile("(?:\n\s{2,}(-{1,2}[?\w-]+)(?:(?:,\s(-{1,2}[?\w-]+))|(?:.*?\s(-{1,2}[?\w-]+)))?)|(?:[\[\{](\-{1,2}[^ ]*?)[\|,\]\}](?:(\-{1,2}[^ ]*?)[\]\}])?)*")
+    flag_regex = re.compile("(?:\n\s{2,}(-{1,2}[^-][?\w-]+)(?:(?:,\s(-{1,2}[?\w-]+))|(?:.*?\s(-{1,2}[?\w-]+)))?)|(?:[\[\{](\-{1,2}[^ ]*?)[\|,\]\}](?:(\-{1,2}[^ ]*?)[\]\}])?)+")
     flag_list = flag_regex.findall(content)
 
     # Prepare empty list.
@@ -114,15 +113,13 @@ def parse_one_page(content):
     # Go through all flags (flags can be in tuple.)
     for flags in flag_list:
         # Go through each tuple.
-        #print("WHOLE:", flags)
         for flag in flags:
-            #print("ONE: " + flag)
             # Check flag.
             if check_regexp.match(flag):
                 #Add flag into list.
                 #print(flag)
                 parsed_flags.append(flag)
-                
+
     # Return flag which was found.
     return parsed_flags
 
@@ -140,7 +137,7 @@ def generate_ini_file(out_file, name, flag_list):
         for flag in flag_list:
             out_file.write(flag)
             out_file.write("\n")
-            
+
         # Print empty line after each command block.
         out_file.write("\n")
 
@@ -149,76 +146,81 @@ def generate_ini_file(out_file, name, flag_list):
     Parse all manpages which are accessible by the path in 'path' parameter list.
 """
 def parse_man_pages(files):
-    
+    # Define variables with tools for reading files.
+    reader = "zcat "
+    zipped_files = "zcat "
+    not_zipped_files = "cat "
+
     # Open file for printing output.
     try:
         f = open(file_name, "a")
     except IOError, e:
         print e
-        
-    #files = []
-    #files.append("/usr/share/man/man8/rpm.8.gz")
+
     # Check all files.
     for file_path in files:
         """ zcat " + f + " | groff -mandoc -Tutf8
-            SOME ERRORS WHILE GROFF READING MANPAGES --- SOLVED BY REDIRECTION
+            SOME ERRORS OCCURE WHILE GROFF READING MANPAGES --- SOLVED BY REDIRECTION
         """
+        # Check whether the file is zipped or not.
+        zipped = re.compile(".*\.gz$")
+        if zipped.match(file_path):
+            reader = zipped_files
+        else:
+            reader = not_zipped_files
+
+
         # Check whether there is redirection. If it is then parse name from the path.
-        #print("========================================")
-        #print("ORIGINAL: " + file_path)
-        file_name_chaged = False
-        check_file = subprocess.Popen(split("zcat " + file_path), stdout=subprocess.PIPE).communicate()[0]
+        file_name_changed = False
+        check_file = subprocess.Popen(split(reader + file_path), stdout=subprocess.PIPE).communicate()[0]
         if re.match("\.so", check_file):
-            file_name_chaged = True
-            
+            file_name_changed = True
+
             # Create regex for getting name of file.
             reg_name = re.compile(".*/(.*?)\.\w{1,5}\.gz")
+            # Parse path.
             parsed_path = reg_name.search(file_path)
+            # Variable for saving name.
             man_name = None
+            # If there is at least one match then save it to the variable.
             if parsed_path != None:
                 man_name = parsed_path.group(1)
-            
-            #print("MAN_NAME: " + man_name)
-            # Parse new file
+
+            # Create regex which catch new file name.
             new_file_regex = re.compile(".* (.*)")
+
+            # Parse file.
             n_f_search = new_file_regex.search(check_file)
+
+            # Prepare variable.
             new_file = None
+
+            # If there is at least one match then save it to the prepared variable.
             if n_f_search != None:
                 new_file = n_f_search.group(1)
+                # Add .gz extension.
                 new_file = new_file + ".gz"
-                #print("!!!New file: " + new_file)
-                
+
             # Substitute old file name by new file name.
-            
-            #print("@@@@OLD: " + file_path)
-            #if new_file == None:
-                #print("NONEEEEE: " + file_path)
             if re.match(".*/.*", new_file):
                 file_path = re.sub("/[-\.\w]*/[-\.\w]*$", "/" + new_file, file_path)
             elif re.match("[^/]*", new_file):
                 file_path = re.sub("/[-\.\w]*$", "/" + new_file, file_path)
-            #print("???NEW_PATH: " + file_path)
-        
+
+        p1 = subprocess.Popen(split(reader + file_path), stdout=subprocess.PIPE, universal_newlines=True)
         # Run these two commands connected by pipe.
-        p1 = subprocess.Popen(split("zcat " + file_path), stdout=subprocess.PIPE)
-        output = subprocess.Popen(split("groff -c -mandoc -Tascii"), stdin=p1.stdout, stdout=subprocess.PIPE, stderr=None).communicate()[0]
-        
+        output = subprocess.Popen(split("groff -E -c -mandoc -Tutf8"), stdin=p1.stdout, stdout=subprocess.PIPE, stderr=None, universal_newlines=True).communicate()[0]
+
         # Parse name of manpage.
-        if not file_name_chaged :
+        if not file_name_changed :
             man_name = parse_name(output)
-        
-        # print ("Parsing: " + man_name + "\n\t(path: " + file_path + ")")
-        # print("\n\n" + output )
-        
+
         # Get list of flags for this page
         flags_list = parse_one_page(output)
-        
+
         # Generate output file in INI-like format.
         generate_ini_file(f, man_name, flags_list)
-        
-        # raw_input("Press Enter to continue...")
-    
-    
+
     # Close file handler.
     f.close()
 
@@ -229,22 +231,15 @@ def parse_man_pages(files):
 def main():
     # Get directories with manual pages
     directories = get_directories()
-    
+
     # Get names of files.
     files = get_file_names(directories)
-    
+
     # Parse man pages
     parse_man_pages(files)
-    
 
-
-
-
-
-
-
-
-
-
+"""
+    Run main function.
+"""
 if __name__ == "__main__":
 	main()
