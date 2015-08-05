@@ -30,7 +30,7 @@ import subprocess
 from shlex import split
 
 # Name of output file.
-file_name = "parsed_manpages.txt"
+file_name = "./parsed_manpages.txt"
 
 
 """
@@ -100,7 +100,7 @@ def parse_one_page(content):
 
     # \u001B is escape character
     content = re.sub(u"\u001B\[[^-]*?;?[^-]*?m", "", content)
-    
+
     # Create regular expression for getting flags from file
     flag_regex = re.compile("(?:\n?\s{2,}(-{1,2}[^-][?\w-]*)(?:(?:,?\s(-{1,2}[?\w-]+))|(?:.*?\s(-{1,2}[?\w-]+)))?)|(?:[\[\{](\-{1,2}[^ ]*?)[\|,\]\}](?:(\-{1,2}[^ ]*?)[\]\}])?)+")
     flag_list = flag_regex.findall(content)
@@ -141,6 +141,20 @@ def generate_ini_file(out_file, name, flag_list):
         out_file.write("\n")
 
 
+def prepare_file():
+    if os.path.isfile(file_name):
+        os.remove(file_name)
+
+    f = None
+    # Open file for printing output.
+    try:
+        f = open(file_name, "a")
+    except IOError, e:
+        print e
+
+    return f
+
+
 """
     Parse all manpages which are accessible by the path in 'path' parameter list.
 """
@@ -150,17 +164,14 @@ def parse_man_pages(files):
     zipped_files = "zcat "
     not_zipped_files = "cat "
 
-    # Open file for printing output.
-    try:
-        f = open(file_name, "a")
-    except IOError, e:
-        print e
+    f = prepare_file()
     #files = []
     #files.append("/usr/share/man/man8/mount.8.gz")
+
     # Check all files.
     for file_path in files:
         """ zcat " + f + " | groff -mandoc -Tutf8
-            SOME ERRORS OCCURE WHILE GROFF READING MANPAGES --- SOLVED BY REDIRECTION
+            SOME ERRORS OCCURE WHILE GROFF READING MANPAGES --- ADJUST LINE
         """
         # Check whether the file is zipped or not.
         zipped = re.compile(".*\.gz$")
