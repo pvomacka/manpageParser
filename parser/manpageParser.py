@@ -92,6 +92,22 @@ def parse_name(content):
 
     return name_str
 
+"""
+    Parse number of man page group.
+"""
+def parse_manpage_number(path):
+    # Create regular expression
+    number_regex = re.compile(".*/man(\d).*")
+    # Get number of manpage group
+    number = number_regex.search(path)
+
+    only_number = ""
+    if number != None:
+        number = number.group(1)
+
+    return number
+
+
 
 """
     Parse flags from manpage which is in content parameter.
@@ -236,8 +252,11 @@ def parse_man_pages(files):
 
 
         # Parse name of manpage.
-        if not file_name_changed :
+        if not file_name_changed:
             man_name = parse_name(output)
+            number = parse_manpage_number(file_path)
+            # print(file_path)
+            # print(number)
 
         # Get list of flags for this page
         flags_list = parse_one_page(output)
