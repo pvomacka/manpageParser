@@ -27,10 +27,164 @@ import os
 import sys
 import re
 import subprocess
+import sqlite3
 from shlex import split
+
+
+# Configutation -- EDIT HERE:
+os_name = "fedora24"
 
 # Name of output file.
 file_name = "./parsed_manpages.txt"
+# Database path
+db_path = "/tmp/switchTest/"
+db_file = "switch.sqlite3"
+
+# Database schema
+schema_file = "./schema.sql"
+opened_db = None
+
+
+"""
+    Prepare empty database.
+"""
+def create_empty_db():
+
+    global opened_db
+
+    if not os.path.exists(db_path):
+        os.makedirs(db_path)
+
+    with sqlite3.connect(os.path.join(db_path, db_file)) as opened_db:
+        print("\t\tImporting database schema.")
+        with open(schema_file, 'rt') as schema_f:
+            schema = schema_f.read()
+
+        # Aplly the schema.
+        opened_db.executescript(schema)
+
+"""
+    Open DB file.
+"""
+def open_db():
+    global opened_db
+
+    opened_db = sqlite3.connect(os.path.join(db_path, db_file))
+
+
+"""
+    Update database record.
+"""
+
+
+"""
+    Add system record.
+"""
+def add_system(sys_name):
+    curs = opened_db.cursor()
+
+    curs.execute("INSERT INTO system(name) VALUES('" + sys_name + "')")
+
+    opened_db.commit()
+
+    return curs.lastrowid
+
+
+"""
+    Find system id.
+"""
+def find_system(sys_name):
+    curs = opened_db.cursor()
+
+    curs.execute("SELECT id FROM system WHERE name=?", (sys_name,))
+
+    return curs.fetchone()
+
+
+"""
+    Handle system.
+"""
+def handle_system(sys_name):
+    system = find_system(sys_name)
+
+    if system == None:
+        system = add_system(sys_name)
+    else:
+        system = system[0]
+
+    print(system)
+    return system
+
+
+
+"""
+    Add command record.
+"""
+def add_command(command, group, sys_id):
+    curs = opened_db.cursor()
+
+    curs.execute("INSERT INTO command(command, man_group, system_id) "
+                "VALUES('" + command + "','" + str(group) + "'"
+                ",'" + str(sys_id) + "')")
+
+    opened_db.commit()
+
+    return curs.lastrowid
+
+
+"""
+    Find command record for correct OS.
+"""
+def find_command(command, group, os_id):
+    curs = opened_db.cursor()
+
+    curs.execute("SELECT id FROM command WHERE command=? AND "
+                 "man_group=? AND system_id=?",
+                 (command, group, os_id,))
+
+    return curs.fetchone()
+
+"""
+    Handle adding commands, in case that command already exists
+    also remove all switches which are associated with current command
+"""
+def handle_command(command, group, os_id):
+    command_id = find_command(command, group, os_id)
+
+    if command_id == None:
+        # Command is not in database. Add it and use the new ID
+        command_id = add_command(command, group, os_id)
+    else:
+        # Command already exists so use its record id and remove
+        # all associated switches.
+        command_id = command_id[0]
+        delete_associated_switches(command_id)
+
+    return command_id
+
+
+"""
+    Add switch record.
+"""
+def add_switch(switch, com_id):
+    curs = opened_db.cursor()
+
+    curs.execute("INSERT INTO switch(switch, command_id) "
+                "VALUES('" + switch + "','" + str(com_id) + "')")
+
+    opened_db.commit()
+
+
+"""
+    Delete all switches associated to the particular command.=
+"""
+def delete_associated_switches(command_id):
+    curs = opened_db.cursor()
+
+    curs.execute("DELETE FROM switch WHERE command_id=?", (command_id,))
+
+    opened_db.commit()
+
 
 
 """
@@ -140,6 +294,22 @@ def parse_one_page(content):
 
 
 """
+    Insert manpage into database.
+"""
+def put_manpage_into_db(os_id, man_name, number, flags_list):
+    print(os_id)
+    print(man_name)
+    print(number)
+    print(flags_list)
+
+    command_id = handle_command(man_name, number, os_id)
+
+    for flag in flags_list:
+        add_switch(flag, command_id)
+
+
+
+"""
     Generate output file in INI-like format.
 """
 def generate_ini_file(out_file, name, flag_list):
@@ -174,7 +344,7 @@ def prepare_file():
 """
     Parse all manpages which are accessible by the path in 'path' parameter list.
 """
-def parse_man_pages(files):
+def parse_man_pages(files, os_id):
     # Define variables with tools for reading files.
     reader = "zcat "
     zipped_files = "zcat "
@@ -264,8 +434,16 @@ def parse_man_pages(files):
         # Generate output file in INI-like format.
         generate_ini_file(f, man_name, flags_list)
 
+        put_manpage_into_db(os_id, man_name, number, flags_list)
+
     # Close file handler.
     f.close()
+
+
+
+
+
+
 
 
 """
@@ -275,11 +453,21 @@ def main():
     # Get directories with manual pages
     directories = get_directories()
 
+    # Create empty database in case that db file does not exists
+    if os.path.exists(os.path.join(db_path, db_file)):
+        open_db()
+    else:
+        create_empty_db()
+
+    current_os_id = handle_system(os_name)
+    # add_command("curl", 5, 1)
+    # add_switch("--a", 1)
+
     # Get names of files.
     files = get_file_names(directories)
 
     # Parse man pages
-    parse_man_pages(files)
+    parse_man_pages(files, current_os_id)
 
 """
     Run main function.
