@@ -165,6 +165,8 @@ def parse_man_pages(files):
     not_zipped_files = "cat "
 
     f = prepare_file()
+    # Open /dev/null/ for output of groff
+    f_devnull = open(os.devnull, 'w')
     #files = []
     #files.append("/usr/share/man/man8/mount.8.gz")
 
@@ -218,9 +220,20 @@ def parse_man_pages(files):
             elif re.match("[^/]*", new_file):
                 file_path = re.sub("/[-\.\w]*$", "/" + new_file, file_path)
 
-        p1 = subprocess.Popen(split(reader + file_path), stdout=subprocess.PIPE, universal_newlines=True)
+        p1 = subprocess.Popen(split(reader + file_path),
+                                    stdout=subprocess.PIPE,
+                                    universal_newlines=True)
         # Run these two commands connected by pipe.
-        output = subprocess.Popen(split("groff -E -c -mandoc -Tutf8"), stdin=p1.stdout, stdout=subprocess.PIPE, stderr=None, universal_newlines=True).communicate()[0]
+        """
+            Error output is redirected to /dev/null because of warnings from
+            incorrectly formated manpages
+        """
+        output = subprocess.Popen(split("groff -E -c -mandoc -Tutf8"),
+                                        stdin=p1.stdout,
+                                        stdout=subprocess.PIPE,
+                                        stderr=f_devnull,
+                                        universal_newlines=True).communicate()[0]
+
 
         # Parse name of manpage.
         if not file_name_changed :
