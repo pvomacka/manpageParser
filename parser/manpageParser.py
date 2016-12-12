@@ -32,7 +32,11 @@ from shlex import split
 
 
 # Configutation -- EDIT HERE:
-os_name = "fedora24"
+os_namex = "fedora"
+os_version = "24"
+os_name = "fedora24" # FIXME
+manpage_groups = ("1", "8",)
+
 
 # Name of output file.
 file_name = "./parsed_manpages.txt"
@@ -186,19 +190,37 @@ def delete_associated_switches(command_id):
     opened_db.commit()
 
 
+"""
+    Prepare regex for getting directories which numbers are defined by
+    global variables.
+"""
+def prepare_dir_regex():
+    regex_begin = "^(?:"
+    regex_end = ")$"
+    regex = regex_begin
+
+    for group_num in manpage_groups:
+        regex = regex + "(?:man" + group_num + ")|"
+
+    regex = re.sub('\|$', '', regex)
+    regex = regex + regex_end
+
+    return regex
+
 
 """
     Function that fetch all needed directory names.
 """
 def get_directories():
     directories = []
+    dir_regex = prepare_dir_regex()
 
     # Load all directories and files in /usr/share/man.
     for root, dirs, files in os.walk('/usr/share/man'):
         # Go through all directory names
         for directory in dirs:
             # Prepare regexp which match to all directories which starts by 'man'
-            dirRegexp = re.compile("man.*")
+            dirRegexp = re.compile(dir_regex)
             if dirRegexp.match(directory) is None:
                 # Skip all directories which does not match regexp
                 continue;
