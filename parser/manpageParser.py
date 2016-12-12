@@ -82,7 +82,7 @@ def open_db():
 def add_system(sys_name):
     curs = opened_db.cursor()
 
-    curs.execute("INSERT INTO system(name) VALUES('" + sys_name + "')")
+    curs.execute("INSERT INTO system(name) VALUES(?)", (sys_name,))
 
     opened_db.commit()
 
@@ -123,8 +123,7 @@ def add_command(command, group, sys_id):
     curs = opened_db.cursor()
 
     curs.execute("INSERT INTO command(command, man_group, system_id) "
-                "VALUES('" + command + "','" + str(group) + "'"
-                ",'" + str(sys_id) + "')")
+                "VALUES(?,?,?)", (command, str(group), str(sys_id),))
 
     opened_db.commit()
 
@@ -169,7 +168,7 @@ def add_switch(switch, com_id):
     curs = opened_db.cursor()
 
     curs.execute("INSERT INTO switch(switch, command_id) "
-                "VALUES('" + switch + "','" + str(com_id) + "')")
+                "VALUES(?,?)", (switch, str(com_id),))
 
     opened_db.commit()
 
