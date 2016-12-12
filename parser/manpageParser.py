@@ -77,11 +77,6 @@ def open_db():
 
 
 """
-    Update database record.
-"""
-
-
-"""
     Add system record.
 """
 def add_system(sys_name):
@@ -116,7 +111,7 @@ def handle_system(sys_name):
     else:
         system = system[0]
 
-    print(system)
+    #print(system)
     return system
 
 
@@ -319,10 +314,10 @@ def parse_one_page(content):
     Insert manpage into database.
 """
 def put_manpage_into_db(os_id, man_name, number, flags_list):
-    print(os_id)
-    print(man_name)
-    print(number)
-    print(flags_list)
+    #print(os_id)
+    #print(man_name)
+    #print(number)
+    #print(flags_list)
 
     command_id = handle_command(man_name, number, os_id)
 
@@ -462,12 +457,6 @@ def parse_man_pages(files, os_id):
     f.close()
 
 
-
-
-
-
-
-
 """
     Main funciton.
 """
@@ -482,8 +471,6 @@ def main():
         create_empty_db()
 
     current_os_id = handle_system(os_name)
-    # add_command("curl", 5, 1)
-    # add_switch("--a", 1)
 
     # Get names of files.
     files = get_file_names(directories)
