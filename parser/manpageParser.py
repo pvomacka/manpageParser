@@ -305,6 +305,7 @@ def parse_one_page(content):
                 #print(flag)
                 parsed_flags.append(flag)
 
+    parsed_flags = list(set(parsed_flags))
     # Return flag which was found.
     return parsed_flags
 
