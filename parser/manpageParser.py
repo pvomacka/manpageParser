@@ -361,7 +361,7 @@ def prepare_file():
 """
     Parse all manpages which are accessible by the path in 'path' parameter list.
 """
-def parse_man_pages(files, os_id):
+def parse_man_pages(files, builtins, os_id):
     # Define variables with tools for reading files.
     reader = "zcat "
     zipped_files = "zcat "
@@ -445,6 +445,9 @@ def parse_man_pages(files, os_id):
             # print(file_path)
             # print(number)
 
+        if man_name == 'BASH_BUILTINS':
+            print(output)
+
         # Get list of flags for this page
         flags_list = parse_one_page(output)
 
@@ -456,6 +459,28 @@ def parse_man_pages(files, os_id):
     # Close file handler.
     f.close()
 
+
+"""
+    Get bash builtin functions
+"""
+def get_builtin_functions():
+    output = subprocess.Popen("compgen -b",
+                              shell=True,
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT,
+                              stdin=subprocess.PIPE,
+                              universal_newlines=True
+                              ).communicate()[0]
+
+
+    output = output.split('\n')
+    regex = re.compile('[a-zA-Z]')
+    # FIXME extra colon
+    for o in output:
+        if not regex.match(o):
+            output.remove(o)
+
+    return output
 
 """
     Main funciton.
@@ -475,8 +500,12 @@ def main():
     # Get names of files.
     files = get_file_names(directories)
 
+    # Get bash builtin functions
+    builtins = get_builtin_functions()
+    print(builtins)
+
     # Parse man pages
-    parse_man_pages(files, current_os_id)
+    parse_man_pages(files, builtins, current_os_id)
 
 """
     Run main function.
