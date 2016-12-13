@@ -288,7 +288,7 @@ def parse_one_page(content):
     content = re.sub(u"\u001B\[[^-]*?;?[^-]*?m", "", content)
 
     # Create regular expression for getting flags from file
-    flag_regex = re.compile("(?:\n?\s{2,}(-{1,2}[^-][?\w-]*)(?:(?:,?\s(-{1,2}[?\w-]+))|(?:.*?\s(-{1,2}[?\w-]+)))?)|(?:[\[\{](\-{1,2}[^ ]*?)[\|,\]\}](?:(\-{1,2}[^ ]*?)[\]\}])?)+")
+    flag_regex = re.compile("(?:\n?\s{1,}(-{1,2}[^-][?\w\-\+]*)(?:(?:,?\s(-{1,2}[?\w\-\+]+))|(?:.*?\s(-{1,2}[?\w-]+)))?)|(?:[\[\{](\-{1,2}[^ ]*?)[\|,\]\}](?:(\-{1,2}[^ ]*?)[\]\}])?)+")
     flag_list = flag_regex.findall(content)
 
     # Prepare empty list.
