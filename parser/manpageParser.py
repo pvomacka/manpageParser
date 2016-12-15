@@ -61,8 +61,8 @@ def create_empty_db():
 
     with sqlite3.connect(os.path.join(db_path, db_file)) as opened_db:
         print("\t\tImporting database schema.")
-        with open(schema_file, 'rt') as schema_f:
-            schema = schema_f.read()
+            with open(schema_file, 'rt') as schema_f:
+                schema = schema_f.read()
 
         # Aplly the schema.
         opened_db.executescript(schema)
@@ -74,6 +74,17 @@ def open_db():
     global opened_db
 
     opened_db = sqlite3.connect(os.path.join(db_path, db_file))
+
+    curs = opened_db.cursor()
+
+    # Check whether correct tables exists in db
+    curs.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND ("
+    "name=? OR name=? OR name=?);", ('system', 'command', 'switch',))
+
+    table_count = curs.fetchone()[0]
+
+    if table_count != 3:
+        exit(1)
 
 
 """
