@@ -284,9 +284,6 @@ def parse_manpage_number(path):
 """
 def parse_one_page(content):
 
-    # \u001B is escape character
-    content = re.sub(u"\u001B\[[^-]*?;?[^-]*?m", "", content)
-
     # Create regular expression for getting flags from file
     flag_regex = re.compile("(?:\n?\s{1,}(-{1,2}[^-][?\w\-\+]*)(?:(?:,?\s(-{1,2}[?\w\-\+]+))|(?:.*?\s(-{1,2}[?\w-]+)))?)|(?:[\[\{](\-{1,2}[^ ]*?)[\|,\]\}](?:(\-{1,2}[^ ]*?)[\]\}])?)+")
     flag_list = flag_regex.findall(content)
@@ -305,9 +302,61 @@ def parse_one_page(content):
                 #print(flag)
                 parsed_flags.append(flag)
 
+    # Remove duplicates
     parsed_flags = list(set(parsed_flags))
+
     # Return flag which was found.
     return parsed_flags
+
+
+"""
+    Parse bash manpage, which is different and keeps switches for more commands.
+"""
+def parse_bash_page(content, command_list, os_id):
+
+    #regex for SHELL BUILTIN COMMANDS
+    shell_builtins = re.compile("^SHELL BUILTIN COMMANDS$")
+    # subcommands has 7 spaces before its name.
+    builtin_reg = re.compile("^ {6,8}([a-zA-Z0-9_\-\+]+)")
+    # Match the end of section
+    section_end = re.compile("^[A-Z]")
+    man_group = 1
+    builtins = False
+    first_line = False
+    current_builtin = ""
+    bash_man = ""
+    mans = {}
+
+    for line in content.splitlines():
+        if not builtins:
+            if shell_builtins.match(line):
+                builtins = True
+                # add bash and so far concatenated manpage to table
+                mans['bash'] = bash_man
+            else:
+                bash_man = bash_man + line
+        else:
+            if builtin_reg.match(line):
+                # builtin command
+                first_word = builtin_reg.findall(line)[0]
+                if first_word in command_list:
+                    # first word is correct command
+                    current_builtin = first_word
+                    mans[current_builtin] = first_word
+                    continue
+            elif section_end.match(line):
+                # next section end whole for cycle
+                break
+
+            if current_builtin != "":
+                mans[current_builtin] = mans[current_builtin] + line
+
+    # parse mans
+    for command in mans:
+        flags = parse_one_page(mans[command])
+        put_manpage_into_db(os_id, command, man_group, flags)
+
+
 
 
 """
@@ -445,8 +494,12 @@ def parse_man_pages(files, builtins, os_id):
             # print(file_path)
             # print(number)
 
-        if man_name == 'BASH_BUILTINS':
-            print(output)
+        # \u001B is escape character - character which make colors in man pages
+        output = re.sub(u"\u001B\[[^-]*?;?[^-]*?m", "", output)
+
+        if man_name == 'BASH':
+            parse_bash_page(output, builtins, os_id)
+            continue # manpage is put into db directly in previous function
 
         # Get list of flags for this page
         flags_list = parse_one_page(output)
@@ -472,7 +525,6 @@ def get_builtin_functions():
                               universal_newlines=True
                               ).communicate()[0]
 
-
     output = output.split('\n')
     regex = re.compile('[a-zA-Z]')
     # FIXME extra colon
@@ -481,6 +533,7 @@ def get_builtin_functions():
             output.remove(o)
 
     return output
+
 
 """
     Main funciton.
@@ -502,8 +555,8 @@ def main():
 
     # Get bash builtin functions
     builtins = get_builtin_functions()
-    print(builtins)
 
+    # files = ['/usr/share/man/man1/bash.1.gz']
     # Parse man pages
     parse_man_pages(files, builtins, current_os_id)
 
