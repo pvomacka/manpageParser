@@ -130,11 +130,11 @@ def handle_system(sys_name):
 """
     Add command record.
 """
-def add_command(command, group, sys_id):
+def add_command(manpage_name, command, group, sys_id):
     curs = opened_db.cursor()
 
-    curs.execute("INSERT INTO command(command, man_group, system_id) "
-                "VALUES(?,?,?)", (command, str(group), str(sys_id),))
+    curs.execute("INSERT INTO command(command, manpage_name, man_group, system_id) "
+                "VALUES(?,?,?,?)", (command, manpage_name, str(group), str(sys_id),))
 
     opened_db.commit()
 
@@ -153,16 +153,17 @@ def find_command(command, group, os_id):
 
     return curs.fetchone()
 
+
 """
     Handle adding commands, in case that command already exists
     also remove all switches which are associated with current command
 """
-def handle_command(command, group, os_id):
+def handle_command(manpage_name, command, group, os_id):
     command_id = find_command(command, group, os_id)
 
     if command_id == None:
         # Command is not in database. Add it and use the new ID
-        command_id = add_command(command, group, os_id)
+        command_id = add_command(manpage_name, command, group, os_id)
     else:
         # Command already exists so use its record id and remove
         # all associated switches.
@@ -365,21 +366,15 @@ def parse_bash_page(content, command_list, os_id):
     # parse mans
     for command in mans:
         flags = parse_one_page(mans[command])
-        put_manpage_into_db(os_id, command, man_group, flags)
-
-
+        put_manpage_into_db(os_id, None, command, man_group, flags)
 
 
 """
     Insert manpage into database.
 """
-def put_manpage_into_db(os_id, man_name, number, flags_list):
-    #print(os_id)
-    #print(man_name)
-    #print(number)
-    #print(flags_list)
+def put_manpage_into_db(os_id, man_name, command, number, flags_list):
 
-    command_id = handle_command(man_name, number, os_id)
+    command_id = handle_command(man_name, command, number, os_id)
 
     for flag in flags_list:
         add_switch(flag, command_id)
@@ -518,7 +513,9 @@ def parse_man_pages(files, builtins, os_id):
         # Generate output file in INI-like format.
         generate_ini_file(f, man_name, flags_list)
 
-        put_manpage_into_db(os_id, man_name, number, flags_list)
+        command = man_name.lower()
+
+        put_manpage_into_db(os_id, man_name, command, number, flags_list)
 
     # Close file handler.
     f.close()

@@ -6,6 +6,7 @@ create table system (
 );
 
 create table command (
+	manpage_name text,
 	id 	integer primary key autoincrement not null,
 	command	text not null,
 	man_group integer,
@@ -14,6 +15,6 @@ create table command (
 
 create table switch (
 	id integer primary key autoincrement not null,
-	switch	text not null, 
+	switch	text not null,
 	command_id integer references command(id) not null
 );
