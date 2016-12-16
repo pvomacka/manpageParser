@@ -61,8 +61,8 @@ def create_empty_db():
 
     with sqlite3.connect(os.path.join(db_path, db_file)) as opened_db:
         print("\t\tImporting database schema.")
-            with open(schema_file, 'rt') as schema_f:
-                schema = schema_f.read()
+        with open(schema_file, 'rt') as schema_f:
+            schema = schema_f.read()
 
         # Aplly the schema.
         opened_db.executescript(schema)
@@ -84,7 +84,7 @@ def open_db():
     table_count = curs.fetchone()[0]
 
     if table_count != 3:
-        exit(1)
+        exit(1) ## FIXME handle error
 
 
 """
