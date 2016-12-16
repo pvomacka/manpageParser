@@ -174,6 +174,17 @@ def handle_command(manpage_name, command, group, os_id):
 
 
 """
+    Get all already inserted commands
+"""
+def get_all_commands():
+    curs = opened_db.cursor()
+
+    curs.execute("SELECT command FROM command;")
+
+    return curs.fetchall()
+
+
+"""
     Add switch record.
 """
 def add_switch(switch, com_id):
@@ -523,9 +534,14 @@ def parse_man_pages(files, builtins, os_id):
 
 """
     Get bash builtin functions
+    @param type string could be 'builtin'
 """
-def get_builtin_functions():
-    output = subprocess.Popen("compgen -b",
+def get_os_commands(ctype=None):
+    command = "compgen -c"
+    if (ctype == 'builtin'):
+        command = 'compgen -b'
+
+    output = subprocess.Popen(command,
                               shell=True,
                               stdout=subprocess.PIPE,
                               stderr=subprocess.STDOUT,
@@ -544,6 +560,28 @@ def get_builtin_functions():
 
 
 """
+    Remove commands which are already in database
+"""
+def remove_already_found_cmds(cmds, cmds_in_db):
+
+    for one_cmd in cmds_in_db:
+        cmd = one_cmd[0]
+
+        if cmd in cmds:
+            cmds = cmds.remove(cmd)
+
+    return cmds
+
+
+"""
+    Call --help on each command which has not been processed yet
+"""
+def call_helps(cmds):
+    pass
+
+
+
+"""
     Main funciton.
 """
 def main():
@@ -556,17 +594,28 @@ def main():
     else:
         create_empty_db()
 
+    # Get all runnable commands - get all runable commands
+    cmds = get_os_commands()
+    cmds_in_db = get_all_commands()
+
+    commands = remove_already_found_cmds(cmds, cmds_in_db)
+    print(len(cmds), len(cmds_in_db), len(commands))
+
+    exit(0)
+
     current_os_id = handle_system(os_name)
 
     # Get names of files.
     files = get_file_names(directories)
 
     # Get bash builtin functions
-    builtins = get_builtin_functions()
+    builtins = get_os_commands('builtin')
 
     # files = ['/usr/share/man/man1/bash.1.gz']
     # Parse man pages
     parse_man_pages(files, builtins, current_os_id)
+
+
 
 """
     Run main function.
