@@ -308,20 +308,24 @@ def parse_manpage_number(path):
     return number
 
 
-
 """
     Parse flags from manpage which is in content parameter.
 """
 def parse_one_page(content):
 
-    # Create regular expression for getting flags from file
-    flag_regex = re.compile("(?:\n?\s{1,}(-{1,2}[^-][?\w\-\+]*)(?:(?:,?\s(-{1,2}[?\w\-\+]+))|(?:.*?\s(-{1,2}[?\w-]+)))?)|(?:[\[\{](\-{1,2}[^ ]*?)[\|,\]\}](?:(\-{1,2}[^ ]*?)[\]\}])?)+")
+    # Create regular expression for getting flags from file \s{1,}
+    flag_regex = re.compile("(?:\n?(?:(?:[^\w\-])|(?:\[))((?:(?:\-{1,2})|(?:\+))[#\?\w\-\+]*)"
+                            "(?:(?:,?\s((?:(?:\-{1,2})|(?:\+))[#\?\w\-\+]+))"
+                            "|(?:.*?\s((?:(?:\-{1,2})|(?:\+))[#\?\w\-\+]+)))?)"
+                            "|(?:[\[\{]((?:(?:\-{1,2})|(?:\+))[^ ]*?)[\|,\]\}]"
+                            "(?:((?:(?:\-{1,2})|(?:\+))}[^ ]*?)[\]\}])?)+")
     flag_list = flag_regex.findall(content)
 
     # Prepare empty list.
     parsed_flags = []
-    # Create regex for checking whether flag contains at least one letter allowed in words.
-    check_regexp = re.compile(".*?\w+.*?")
+    # Create regex for checking whether flag contains at least one letter
+    # or '#' or question mark.
+    check_regexp = re.compile("(?:.*?[\w#\?]+.*?)|(?:\-\-)")
     # Go through all flags (flags can be in tuple.)
     for flags in flag_list:
         # Go through each tuple.
