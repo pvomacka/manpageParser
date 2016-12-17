@@ -23,6 +23,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import argparse
 import os
 import sys
 import re
@@ -30,19 +31,13 @@ import subprocess, shlex
 from threading import Timer
 import sqlite3
 
-
-# Configutation -- EDIT HERE:
-os_namex = "fedora"
-os_version = "24"
-os_name = "fedora24" # FIXME
 manpage_groups = ("1", "8",)
 
 
 # Name of output file.
-file_name = "./parsed_manpages.txt"
+db_file = "switch.sqlite3"
 # Database path
 db_path = "/tmp/switchTest/"
-db_file = "switch.sqlite3"
 
 # Database schema
 schema_file = "./schema.sql"
@@ -414,39 +409,6 @@ def put_manpage_into_db(os_id, man_name, command, number, flags_list):
         add_switch(flag, command_id)
 
 
-
-"""
-    Generate output file in INI-like format.
-"""
-def generate_ini_file(out_file, name, flag_list):
-    if name != "":
-        # Print name of the tool into INI file.
-        out_file.write("[" + name + "]")
-        out_file.write("\n")
-
-        # Print all flags for this command.
-        for flag in flag_list:
-            out_file.write(flag)
-            out_file.write("\n")
-
-        # Print empty line after each command block.
-        out_file.write("\n")
-
-
-def prepare_file():
-    if os.path.isfile(file_name):
-        os.remove(file_name)
-
-    f = None
-    # Open file for printing output.
-    try:
-        f = open(file_name, "a")
-    except IOError, e:
-        print e
-
-    return f
-
-
 """
     Parse all manpages which are accessible by the path in 'path' parameter list.
 """
@@ -639,13 +601,60 @@ def handle_helps(os_id, cmds):
     return helps
 
 
+"""
+    Parse options
+"""
+def parse_options():
+    parser = argparse.ArgumentParser(description="Generate SQLite3 database "
+                                     "with all options and switches for all "
+                                     "installed commands.")
+    parser.add_argument("--from-help", help="WARNING: Use this parameter only on "
+                        "virtual machine, which could be lost. Try to run all "
+                        "found commands with '--help' parameter to fetch all "
+                        "options from the output. Please use this only if you "
+                        "know what you are doing. ",
+                        action="store_true")
+    parser.add_argument("--os-name", help="Name of the OS. Whole name will be "
+                        "created by concatenating OS name and OS version.",
+                        required=True)
+    parser.add_argument("--os-version", help="Version of OS. Whole name will be "
+                        "created by concatenating OS name and OS version.",
+                        required=True)
+    parser.add_argument("--schema-file", default="./schema.sql",
+                        help="File with database schema. Default file: "
+                        "./schema.sql")
+    parser.add_argument("--db-file", default="switch.sqlite3",
+                        help="The name of the database file.")
+    parser.add_argument("--output-db-dir", default="/tmp/switchTest",
+                        help="Directory to write generated database to. "
+                        "Default directory: /tmp/switchTest/")
+    prog_args = parser.parse_args()
+
+    # Name of schema file.
+    if prog_args.schema_file:
+        global schema_file
+        schema_file = prog_args.schema_file
+
+    # Name of database file.
+    if prog_args.output_db_dir:
+        global db_path
+        db_path = prog_args.output_db_dir
+
+    # DB path
+    if prog_args.db_file:
+        global db_file
+        db_file = prog_args.db_file
+
+    return prog_args
+
 
 """
     Main funciton.
 """
 def main():
-    # Get directories with manual pages
-    directories = get_directories()
+    # Parse options
+    args = parse_options()
+    print(db_file)
 
     # Create empty database in case that db file does not exists
     if os.path.exists(os.path.join(db_path, db_file)):
@@ -653,18 +662,14 @@ def main():
     else:
         create_empty_db()
 
-    # Get all runnable commands - get all runable commands
-    cmds = get_os_commands()
-    cmds_in_db = get_all_commands()
+    # parse_helps(helps)
+    current_os_id = handle_system(args.os_name + args.os_version)
+    # print(current_os_id)
+    # exit(0)
 
-    commands = remove_already_found_cmds(cmds, cmds_in_db)
-    print(len(cmds), len(cmds_in_db), len(commands))
-
-    exit(0)
-
-    current_os_id = handle_system(os_name)
-
-    # Get names of files.
+    # Get directories with manual pages
+    directories = get_directories()
+    # Get names of manpage files.
     files = get_file_names(directories)
 
     # Get bash builtin functions
