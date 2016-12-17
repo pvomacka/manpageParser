@@ -26,9 +26,9 @@
 import os
 import sys
 import re
-import subprocess
+import subprocess, shlex
+from threading import Timer
 import sqlite3
-from shlex import split
 
 
 # Configutation -- EDIT HERE:
@@ -133,8 +133,12 @@ def handle_system(sys_name):
 def add_command(manpage_name, command, group, sys_id):
     curs = opened_db.cursor()
 
+    # Handle situation when we are finding record for command --help output.
+    if group != None:
+        group = str(group)
+
     curs.execute("INSERT INTO command(command, manpage_name, man_group, system_id) "
-                "VALUES(?,?,?,?)", (command, manpage_name, str(group), str(sys_id),))
+                "VALUES(?,?,?,?)", (command, manpage_name, group, str(sys_id),))
 
     opened_db.commit()
 
@@ -147,9 +151,16 @@ def add_command(manpage_name, command, group, sys_id):
 def find_command(command, group, os_id):
     curs = opened_db.cursor()
 
-    curs.execute("SELECT id FROM command WHERE command=? AND "
-                 "man_group=? AND system_id=?",
-                 (command, group, os_id,))
+    # Handle situation when we are finding record for command --help output.
+    if group == None:
+        curs.execute("SELECT id FROM command WHERE command=? AND system_id=?",
+                     (command, os_id,))
+    else:
+        curs.execute("SELECT id FROM command WHERE command=? AND "
+                    "man_group=? AND system_id=?",
+                    (command, group, os_id,))
+
+
 
     return curs.fetchone()
 
@@ -285,6 +296,7 @@ def parse_name(content):
 
     return name_str
 
+
 """
     Parse number of man page group.
 """
@@ -381,6 +393,17 @@ def parse_bash_page(content, command_list, os_id):
 
 
 """
+    Store options from help outputs to DB.
+"""
+def store_helps(os_id, helps):
+    for command, manpage in helps.iteritems():
+        f_list = parse_one_page(manpage)
+        # print("==========="+command+"==============")
+        # print(f_list)
+        put_manpage_into_db(os_id, None, command, None, f_list)
+
+
+"""
     Insert manpage into database.
 """
 def put_manpage_into_db(os_id, man_name, command, number, flags_list):
@@ -438,7 +461,6 @@ def parse_man_pages(files, builtins, os_id):
     f_devnull = open(os.devnull, 'w')
     #files = []
     #files.append("/usr/share/man/man8/mount.8.gz")
-
     # Check all files.
     for file_path in files:
         """ zcat " + f + " | groff -mandoc -Tutf8
@@ -454,7 +476,7 @@ def parse_man_pages(files, builtins, os_id):
 
         # Check whether there is redirection. If it is then parse name from the path.
         file_name_changed = False
-        check_file = subprocess.Popen(split(reader + file_path), stdout=subprocess.PIPE).communicate()[0]
+        check_file = subprocess.Popen(shlex.split(reader + file_path), stdout=subprocess.PIPE).communicate()[0]
         if re.match("\.so", check_file):
             file_name_changed = True
 
@@ -489,7 +511,7 @@ def parse_man_pages(files, builtins, os_id):
             elif re.match("[^/]*", new_file):
                 file_path = re.sub("/[-\.\w]*$", "/" + new_file, file_path)
 
-        p1 = subprocess.Popen(split(reader + file_path),
+        p1 = subprocess.Popen(shlex.split(reader + file_path),
                                     stdout=subprocess.PIPE,
                                     universal_newlines=True)
         # Run these two commands connected by pipe.
@@ -497,7 +519,7 @@ def parse_man_pages(files, builtins, os_id):
             Error output is redirected to /dev/null because of warnings from
             incorrectly formated manpages
         """
-        output = subprocess.Popen(split("groff -E -c -mandoc -Tutf8"),
+        output = subprocess.Popen(shlex.split("groff -E -c -mandoc -Tutf8"),
                                         stdin=p1.stdout,
                                         stdout=subprocess.PIPE,
                                         stderr=f_devnull,
@@ -524,6 +546,7 @@ def parse_man_pages(files, builtins, os_id):
         # Generate output file in INI-like format.
         generate_ini_file(f, man_name, flags_list)
 
+        # Consider manpage name as the name of command.
         command = man_name.lower()
 
         put_manpage_into_db(os_id, man_name, command, number, flags_list)
@@ -541,13 +564,20 @@ def get_os_commands(ctype=None):
     if (ctype == 'builtin'):
         command = 'compgen -b'
 
-    output = subprocess.Popen(command,
+    p = subprocess.Popen(command,
                               shell=True,
                               stdout=subprocess.PIPE,
                               stderr=subprocess.STDOUT,
                               stdin=subprocess.PIPE,
                               universal_newlines=True
+                              )
+    output = subprocess.Popen(["sort", "-u"],
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT,
+                              stdin=p.stdout,
+                              universal_newlines=True
                               ).communicate()[0]
+
 
     output = output.split('\n')
     regex = re.compile('[a-zA-Z]')
@@ -568,7 +598,7 @@ def remove_already_found_cmds(cmds, cmds_in_db):
         cmd = one_cmd[0]
 
         if cmd in cmds:
-            cmds = cmds.remove(cmd)
+            cmds.remove(cmd)
 
     return cmds
 
@@ -576,8 +606,37 @@ def remove_already_found_cmds(cmds, cmds_in_db):
 """
     Call --help on each command which has not been processed yet
 """
-def call_helps(cmds):
-    pass
+def handle_helps(os_id, cmds):
+    help_cont = ''
+    timeout = 2
+    helps = {}
+    for cmd in cmds:
+        try:
+            p = subprocess.Popen([cmd, "--help"],
+                                      stdout=subprocess.PIPE,
+                                      stderr=subprocess.STDOUT,
+                                      stdin=subprocess.PIPE,
+                                      universal_newlines=True
+                                      )
+            kill_proc = lambda p: p.kill()
+            timer = Timer(timeout, kill_proc, [p])
+            try:
+                timer.start()
+                help_cont = p.communicate()[0]
+            finally:
+                timer.cancel()
+
+        except OSError:
+            #TODO: correct exception handling
+            continue
+
+        f_list = parse_one_page(help_cont)
+
+        put_manpage_into_db(os_id, None, cmd, None, f_list)
+
+        helps[cmd] = help_cont
+
+    return helps
 
 
 
@@ -610,11 +669,22 @@ def main():
 
     # Get bash builtin functions
     builtins = get_os_commands('builtin')
+    # Get all runnable commands - get all runable commands
+    cmds = get_os_commands()
 
-    # files = ['/usr/share/man/man1/bash.1.gz']
+    # files = ['/usr/share/man/man1/git-log.1.gz']
     # Parse man pages
     parse_man_pages(files, builtins, current_os_id)
 
+    # Fetch all command names which are stored in database.
+    cmds_in_db = get_all_commands()
+    # Compare list of commands found in OS with all already stored in DB.
+    # Then remove all commands which are already in DB from list of all commands.
+    remove_already_found_cmds(cmds, cmds_in_db)
+
+    # Call each command which is not in DB yet with '--help' param to gather
+    # further data.
+    helps = handle_helps(current_os_id, cmds)
 
 
 """

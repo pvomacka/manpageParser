@@ -6,9 +6,9 @@ create table system (
 );
 
 create table command (
-	manpage_name text,
 	id 	integer primary key autoincrement not null,
 	command	text not null,
+	manpage_name text,
 	man_group integer,
 	system_id integer references system(id) not null
 );
