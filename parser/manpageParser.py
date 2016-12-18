@@ -422,7 +422,6 @@ def parse_man_pages(files, builtins, os_id):
     zipped_files = "zcat "
     not_zipped_files = "cat "
 
-    f = prepare_file()
     # Open /dev/null/ for output of groff
     f_devnull = open(os.devnull, 'w')
     #files = []
@@ -509,16 +508,10 @@ def parse_man_pages(files, builtins, os_id):
         # Get list of flags for this page
         flags_list = parse_one_page(output)
 
-        # Generate output file in INI-like format.
-        generate_ini_file(f, man_name, flags_list)
-
         # Consider manpage name as the name of command.
         command = man_name.lower()
 
         put_manpage_into_db(os_id, man_name, command, number, flags_list)
-
-    # Close file handler.
-    f.close()
 
 
 """
