@@ -704,11 +704,10 @@ def main():
 
     print("Storing commands from 'compgen -c' command...")
     store_cmds_to_db(cmds, current_os_id)
-    exit(0)
 
     # Call each command which is not in DB yet with '--help' param to gather
     # further data.
-    if args.with_help:
+    if args.from_help:
         print("Running commands with --help option...")
         helps = handle_helps(current_os_id, cmds)
 
