@@ -178,6 +178,14 @@ def handle_command(manpage_name, command, group, os_id):
 
     return command_id
 
+"""
+    Store all commands from compgen -c command to database also in case that
+    we don't run --help for each command. It helps with testing of commands.
+"""
+def store_cmds_to_db(cmds, os_id):
+    for cmd in cmds:
+        handle_command(None, cmd, None, os_id)
+
 
 """
     Get all already inserted commands
@@ -644,6 +652,8 @@ def parse_options():
 
     return prog_args
 
+# TODO: disabling help calls, not fetching commands and saving them into db
+
 
 """
     Main funciton.
@@ -662,7 +672,6 @@ def main():
     # parse_helps(helps)
     current_os_id = handle_system(args.os_name + args.os_version)
     # print(current_os_id)
-    # exit(0)
 
     # Get directories with manual pages
     directories = get_directories()
@@ -684,9 +693,13 @@ def main():
     # Then remove all commands which are already in DB from list of all commands.
     remove_already_found_cmds(cmds, cmds_in_db)
 
+    store_cmds_to_db(cmds, current_os_id)
+    exit(0)
+
     # Call each command which is not in DB yet with '--help' param to gather
     # further data.
-    helps = handle_helps(current_os_id, cmds)
+    if args.with_help:
+        helps = handle_helps(current_os_id, cmds)
 
 
 """
