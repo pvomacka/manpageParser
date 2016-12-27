@@ -51,6 +51,9 @@ def create_empty_db():
 
     global opened_db
 
+    database_file = os.path.join(db_path, db_file)
+    print("\tCreating new database file " + database_file)
+
     if not os.path.exists(db_path):
         os.makedirs(db_path)
 
@@ -67,8 +70,10 @@ def create_empty_db():
 """
 def open_db():
     global opened_db
+    database_file = os.path.join(db_path, db_file)
+    print("\tOpening DB file: " + database_file)
 
-    opened_db = sqlite3.connect(os.path.join(db_path, db_file))
+    opened_db = sqlite3.connect(database_file)
 
     curs = opened_db.cursor()
 
@@ -661,7 +666,7 @@ def parse_options():
 def main():
     # Parse options
     args = parse_options()
-    print(db_file)
+    print("Preparing database file...")
 
     # Create empty database in case that db file does not exists
     if os.path.exists(os.path.join(db_path, db_file)):
@@ -670,19 +675,23 @@ def main():
         create_empty_db()
 
     # parse_helps(helps)
+    print("Finding OS ID...")
     current_os_id = handle_system(args.os_name + args.os_version)
     # print(current_os_id)
 
+    print("Fetching directories with manual pages...")
     # Get directories with manual pages
     directories = get_directories()
     # Get names of manpage files.
     files = get_file_names(directories)
 
+    print("Fetching builtin commands...")
     # Get bash builtin functions
     builtins = get_os_commands('builtin')
     # Get all runnable commands - get all runable commands
     cmds = get_os_commands()
 
+    print("Parsing manual pages...")
     # files = ['/usr/share/man/man1/git-log.1.gz']
     # Parse man pages
     parse_man_pages(files, builtins, current_os_id)
@@ -693,12 +702,14 @@ def main():
     # Then remove all commands which are already in DB from list of all commands.
     remove_already_found_cmds(cmds, cmds_in_db)
 
+    print("Storing commands from 'compgen -c' command...")
     store_cmds_to_db(cmds, current_os_id)
     exit(0)
 
     # Call each command which is not in DB yet with '--help' param to gather
     # further data.
     if args.with_help:
+        print("Running commands with --help option...")
         helps = handle_helps(current_os_id, cmds)
 
 
