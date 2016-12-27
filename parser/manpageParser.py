@@ -434,6 +434,7 @@ def parse_man_pages(files, builtins, os_id):
     reader = "zcat "
     zipped_files = "zcat "
     not_zipped_files = "cat "
+    commands_stored = []
 
     # Open /dev/null/ for output of groff
     f_devnull = open(os.devnull, 'w')
@@ -525,6 +526,10 @@ def parse_man_pages(files, builtins, os_id):
         command = man_name.lower()
 
         put_manpage_into_db(os_id, man_name, command, number, flags_list)
+
+        commands_stored.extend(command)
+
+    return commands_stored
 
 
 """
@@ -694,13 +699,11 @@ def main():
     print("Parsing manual pages...")
     # files = ['/usr/share/man/man1/git-log.1.gz']
     # Parse man pages
-    parse_man_pages(files, builtins, current_os_id)
+    handled_cmds = parse_man_pages(files, builtins, current_os_id)
 
-    # Fetch all command names which are stored in database.
-    cmds_in_db = get_all_commands()
     # Compare list of commands found in OS with all already stored in DB.
     # Then remove all commands which are already in DB from list of all commands.
-    remove_already_found_cmds(cmds, cmds_in_db)
+    remove_already_found_cmds(cmds, handled_cmds)
 
     print("Storing commands from 'compgen -c' command...")
     store_cmds_to_db(cmds, current_os_id)
