@@ -58,7 +58,7 @@ def create_empty_db():
         os.makedirs(db_path)
 
     with sqlite3.connect(os.path.join(db_path, db_file)) as opened_db:
-        print("\t\tImporting database schema.")
+        print("\t\tImporting database schema...")
         with open(schema_file, 'rt') as schema_f:
             schema = schema_f.read()
 
