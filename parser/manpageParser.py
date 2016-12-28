@@ -438,12 +438,17 @@ def parse_man_pages(files, builtins, os_id):
 
     # Open /dev/null/ for output of groff
     f_devnull = open(os.devnull, 'w')
-    #files = []
-    #files.append("/usr/share/man/man8/mount.8.gz")
+
     # Check all files.
     for file_path in files:
+        # clean vars
+        flags_list = None
+        man_name = None
+        command = None
+        number = None
         """ zcat " + f + " | groff -mandoc -Tutf8
             SOME ERRORS OCCURE WHILE GROFF READING MANPAGES --- ADJUST LINE
+            ^^ those errors are caused by mistakes in manpages
         """
         # Check whether the file is zipped or not.
         zipped = re.compile(".*\.gz$")
@@ -504,13 +509,11 @@ def parse_man_pages(files, builtins, os_id):
                                         stderr=f_devnull,
                                         universal_newlines=True).communicate()[0]
 
+        number = parse_manpage_number(file_path)
 
         # Parse name of manpage.
         if not file_name_changed:
             man_name = parse_name(output)
-            number = parse_manpage_number(file_path)
-            # print(file_path)
-            # print(number)
 
         # \u001B is escape character - character which make colors in man pages
         output = re.sub(u"\u001B\[[^-]*?;?[^-]*?m", "", output)
@@ -526,9 +529,9 @@ def parse_man_pages(files, builtins, os_id):
         command = man_name.lower()
 
         put_manpage_into_db(os_id, man_name, command, number, flags_list)
+        commands_stored.append(command)
 
-        commands_stored.extend(command)
-
+    f_devnull.close()
     return commands_stored
 
 
@@ -571,8 +574,7 @@ def get_os_commands(ctype=None):
 """
 def remove_already_found_cmds(cmds, cmds_in_db):
 
-    for one_cmd in cmds_in_db:
-        cmd = one_cmd[0]
+    for cmd in cmds_in_db:
 
         if cmd in cmds:
             cmds.remove(cmd)
@@ -662,8 +664,6 @@ def parse_options():
 
     return prog_args
 
-# TODO: disabling help calls, not fetching commands and saving them into db
-
 
 """
     Main funciton.
@@ -679,10 +679,8 @@ def main():
     else:
         create_empty_db()
 
-    # parse_helps(helps)
-    print("Finding OS ID...")
+    print("Searching OS ID...")
     current_os_id = handle_system(args.os_name + args.os_version)
-    # print(current_os_id)
 
     print("Fetching directories with manual pages...")
     # Get directories with manual pages
@@ -697,7 +695,6 @@ def main():
     cmds = get_os_commands()
 
     print("Parsing manual pages...")
-    # files = ['/usr/share/man/man1/git-log.1.gz']
     # Parse man pages
     handled_cmds = parse_man_pages(files, builtins, current_os_id)
 
