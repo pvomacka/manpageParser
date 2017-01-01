@@ -22,6 +22,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+from __future__ import print_function
 
 import argparse
 import os
@@ -43,12 +44,17 @@ db_path = "/tmp/switchTest/"
 schema_file = "./schema.sql"
 opened_db = None
 
+def err_print(*args, **kwargs):
+    """
+        Print to stderr.
+    """
+    print(*args, file=sys.stderr, **kwargs)
 
-"""
-    Prepare empty database.
-"""
+
 def create_empty_db():
-
+    """
+        Prepare empty database.
+    """
     global opened_db
 
     database_file = os.path.join(db_path, db_file)
@@ -65,10 +71,10 @@ def create_empty_db():
         # Aplly the schema.
         opened_db.executescript(schema)
 
-"""
-    Open DB file.
-"""
 def open_db():
+    """
+        Open DB file.
+    """
     global opened_db
     database_file = os.path.join(db_path, db_file)
     print("\tOpening DB file: " + database_file)
@@ -84,13 +90,13 @@ def open_db():
     table_count = curs.fetchone()[0]
 
     if table_count != 3:
-        exit(1) ## FIXME handle error
+        raise RuntimeError
 
 
-"""
-    Add system record.
-"""
 def add_system(sys_name):
+    """
+        Add system record.
+    """
     curs = opened_db.cursor()
 
     curs.execute("INSERT INTO system(name) VALUES(?)", (sys_name,))
@@ -100,10 +106,10 @@ def add_system(sys_name):
     return curs.lastrowid
 
 
-"""
-    Find system id.
-"""
 def find_system(sys_name):
+    """
+        Find system id.
+    """
     curs = opened_db.cursor()
 
     curs.execute("SELECT id FROM system WHERE name=?", (sys_name,))
@@ -111,30 +117,29 @@ def find_system(sys_name):
     return curs.fetchone()
 
 
-"""
-    Handle system.
-"""
 def handle_system(sys_name):
+    """
+        Handle system.
+    """
     system = find_system(sys_name)
 
-    if system == None:
+    if system is None:
         system = add_system(sys_name)
     else:
         system = system[0]
 
-    #print(system)
     return system
 
 
 
-"""
-    Add command record.
-"""
 def add_command(manpage_name, command, group, sys_id):
+    """
+        Add command record.
+    """
     curs = opened_db.cursor()
 
     # Handle situation when we are finding record for command --help output.
-    if group != None:
+    if group is not None:
         group = str(group)
 
     curs.execute("INSERT INTO command(command, manpage_name, man_group, system_id) "
@@ -145,14 +150,14 @@ def add_command(manpage_name, command, group, sys_id):
     return curs.lastrowid
 
 
-"""
-    Find command record for correct OS.
-"""
 def find_command(command, group, os_id):
+    """
+        Find command record for correct OS.
+    """
     curs = opened_db.cursor()
 
     # Handle situation when we are finding record for command --help output.
-    if group == None:
+    if group is None:
         curs.execute("SELECT id FROM command WHERE command=? AND system_id=?",
                      (command, os_id,))
     else:
@@ -165,14 +170,14 @@ def find_command(command, group, os_id):
     return curs.fetchone()
 
 
-"""
-    Handle adding commands, in case that command already exists
-    also remove all switches which are associated with current command
-"""
 def handle_command(manpage_name, command, group, os_id):
+    """
+        Handle adding commands, in case that command already exists
+        also remove all switches which are associated with current command
+    """
     command_id = find_command(command, group, os_id)
 
-    if command_id == None:
+    if command_id is None:
         # Command is not in database. Add it and use the new ID
         command_id = add_command(manpage_name, command, group, os_id)
     else:
@@ -183,19 +188,19 @@ def handle_command(manpage_name, command, group, os_id):
 
     return command_id
 
-"""
-    Store all commands from compgen -c command to database also in case that
-    we don't run --help for each command. It helps with testing of commands.
-"""
 def store_cmds_to_db(cmds, os_id):
+    """
+        Store all commands from compgen -c command to database also in case that
+        we don't run --help for each command. It helps with testing of commands.
+    """
     for cmd in cmds:
         handle_command(None, cmd, None, os_id)
 
 
-"""
-    Get all already inserted commands
-"""
 def get_all_commands():
+    """
+        Get all already inserted commands
+    """
     curs = opened_db.cursor()
 
     curs.execute("SELECT command FROM command;")
@@ -203,10 +208,10 @@ def get_all_commands():
     return curs.fetchall()
 
 
-"""
-    Add switch record.
-"""
 def add_switch(switch, com_id):
+    """
+        Add switch record.
+    """
     curs = opened_db.cursor()
 
     curs.execute("INSERT INTO switch(switch, command_id) "
@@ -215,10 +220,10 @@ def add_switch(switch, com_id):
     opened_db.commit()
 
 
-"""
-    Delete all switches associated to the particular command.=
-"""
 def delete_associated_switches(command_id):
+    """
+        Delete all switches associated to the particular command.=
+    """
     curs = opened_db.cursor()
 
     curs.execute("DELETE FROM switch WHERE command_id=?", (command_id,))
@@ -226,28 +231,28 @@ def delete_associated_switches(command_id):
     opened_db.commit()
 
 
-"""
-    Prepare regex for getting directories which numbers are defined by
-    global variables.
-"""
 def prepare_dir_regex():
-    regex_begin = "^(?:"
-    regex_end = ")$"
+    """
+        Prepare regex for getting directories which numbers are defined by
+        global variables.
+    """
+    regex_begin = r"^(?:"
+    regex_end = r")$"
     regex = regex_begin
 
     for group_num in manpage_groups:
-        regex = regex + "(?:man" + group_num + ")|"
+        regex = regex + r"(?:man" + group_num + ")|"
 
-    regex = re.sub('\|$', '', regex)
+    regex = re.sub(r'\|$', '', regex)
     regex = regex + regex_end
 
     return regex
 
 
-"""
-    Function that fetch all needed directory names.
-"""
 def get_directories():
+    """
+        Function that fetch all needed directory names.
+    """
     directories = []
     dir_regex = prepare_dir_regex()
 
@@ -259,11 +264,11 @@ def get_directories():
             dirRegexp = re.compile(dir_regex)
             if dirRegexp.match(directory) is None:
                 # Skip all directories which does not match regexp
-                continue;
+                continue
 
             # All directories names which match the regexp concatenate with path
             # and save them into list.
-            directories.append(root + "/" + directory)
+            directories.append(os.path.join(root, directory))
         # Do not go deeper into subdirectories.
         break
 
@@ -271,10 +276,10 @@ def get_directories():
     return directories
 
 
-"""
-    Function that get names of all files in 'directories'.
-"""
 def get_file_names(directories):
+    """
+        Function that get names of all files in 'directories'.
+    """
     files = []
 
     # Go through all directories
@@ -289,45 +294,45 @@ def get_file_names(directories):
     return files
 
 
-"""
-    Finds the name of the man page.
-"""
 def parse_name(content):
+    """
+        Finds the name of the man page.
+    """
     # Create regular expression
-    name_regex = re.compile("^([\w\.-]*)")
+    name_regex = re.compile(r"^([\w\.-]*)")
     # Get name of manual page
     just_name = name_regex.search(content)
     name_str = ""
 
-    if just_name != None:
+    if just_name is not None:
         name_str = just_name.group(1)
 
     return name_str
 
 
-"""
-    Parse number of man page group.
-"""
 def parse_manpage_number(path):
+    """
+        Parse number of man page group.
+    """
     # Create regular expression
-    number_regex = re.compile(".*/man(\d).*")
+    number_regex = re.compile(r".*/man(\d).*")
     # Get number of manpage group
     number = number_regex.search(path)
 
     only_number = ""
-    if number != None:
+    if number is not None:
         number = number.group(1)
 
     return number
 
 
-"""
-    Parse flags from manpage which is in content parameter.
-"""
-def parse_one_page(content):
 
+def parse_one_page(content):
+    """
+        Parse flags from manpage which is in content parameter.
+    """
     # Create regular expression for getting flags from file \s{1,}
-    flag_regex = re.compile("(?:\n?(?:(?:[^\w\-])|(?:\[))((?:(?:\-{1,2})|(?:\+))[#\?\w\-\+]*)"
+    flag_regex = re.compile(r"(?:\n?(?:(?:[^\w\-])|(?:\[))((?:(?:\-{1,2})|(?:\+))[#\?\w\-\+]*)"
                             "(?:(?:,?\s((?:(?:\-{1,2})|(?:\+))[#\?\w\-\+]+))"
                             "|(?:.*?\s((?:(?:\-{1,2})|(?:\+))[#\?\w\-\+]+)))?)"
                             "|(?:[\[\{]((?:(?:\-{1,2})|(?:\+))[^ ]*?)[\|,\]\}]"
@@ -338,7 +343,7 @@ def parse_one_page(content):
     parsed_flags = []
     # Create regex for checking whether flag contains at least one letter
     # or '#' or question mark.
-    check_regexp = re.compile("(?:.*?[\w#\?]+.*?)|(?:\-\-)")
+    check_regexp = re.compile(r"(?:.*?[\w#\?]+.*?)|(?:\-\-)")
     # Go through all flags (flags can be in tuple.)
     for flags in flag_list:
         # Go through each tuple.
@@ -356,17 +361,17 @@ def parse_one_page(content):
     return parsed_flags
 
 
-"""
-    Parse bash manpage, which is different and keeps switches for more commands.
-"""
-def parse_bash_page(content, command_list, os_id):
 
+def parse_bash_page(content, command_list, os_id):
+    """
+        Parse bash manpage, which is different and keeps switches for more commands.
+    """
     #regex for SHELL BUILTIN COMMANDS
-    shell_builtins = re.compile("^SHELL BUILTIN COMMANDS$")
+    shell_builtins = re.compile(r"^SHELL BUILTIN COMMANDS$")
     # subcommands has 7 spaces before its name.
-    builtin_reg = re.compile("^ {6,8}([a-zA-Z0-9_\-\+]+)")
+    builtin_reg = re.compile(r"^ {6,8}([a-zA-Z0-9_\-\+]+)")
     # Match the end of section
-    section_end = re.compile("^[A-Z]")
+    section_end = re.compile(r"^[A-Z]")
     man_group = 1
     builtins = False
     first_line = False
@@ -404,32 +409,31 @@ def parse_bash_page(content, command_list, os_id):
         put_manpage_into_db(os_id, None, command, man_group, flags)
 
 
-"""
-    Store options from help outputs to DB.
-"""
+
 def store_helps(os_id, helps):
+    """
+        Store options from help outputs to DB.
+    """
     for command, manpage in helps.iteritems():
         f_list = parse_one_page(manpage)
-        # print("==========="+command+"==============")
-        # print(f_list)
+
         put_manpage_into_db(os_id, None, command, None, f_list)
 
 
-"""
-    Insert manpage into database.
-"""
 def put_manpage_into_db(os_id, man_name, command, number, flags_list):
-
+    """
+        Insert manpage into database.
+    """
     command_id = handle_command(man_name, command, number, os_id)
 
     for flag in flags_list:
         add_switch(flag, command_id)
 
 
-"""
-    Parse all manpages which are accessible by the path in 'path' parameter list.
-"""
 def parse_man_pages(files, builtins, os_id):
+    """
+        Parse all manpages which are accessible by the path in 'path' parameter list.
+    """
     # Define variables with tools for reading files.
     reader = "zcat "
     zipped_files = "zcat "
@@ -451,7 +455,7 @@ def parse_man_pages(files, builtins, os_id):
             ^^ those errors are caused by mistakes in manpages
         """
         # Check whether the file is zipped or not.
-        zipped = re.compile(".*\.gz$")
+        zipped = re.compile(r".*\.gz$")
         if zipped.match(file_path):
             reader = zipped_files
         else:
@@ -465,17 +469,17 @@ def parse_man_pages(files, builtins, os_id):
             file_name_changed = True
 
             # Create regex for getting name of file.
-            reg_name = re.compile(".*/(.*?)\.\w{1,5}\.gz")
+            reg_name = re.compile(r".*/(.*?)\.\w{1,5}\.gz")
             # Parse path.
             parsed_path = reg_name.search(file_path)
             # Variable for saving name.
             man_name = None
             # If there is at least one match then save it to the variable.
-            if parsed_path != None:
+            if parsed_path is not None:
                 man_name = parsed_path.group(1)
 
             # Create regex which catch new file name.
-            new_file_regex = re.compile(".* (.*)")
+            new_file_regex = re.compile(r".* (.*)")
 
             # Parse file.
             n_f_search = new_file_regex.search(check_file)
@@ -484,16 +488,16 @@ def parse_man_pages(files, builtins, os_id):
             new_file = None
 
             # If there is at least one match then save it to the prepared variable.
-            if n_f_search != None:
+            if n_f_search is not None:
                 new_file = n_f_search.group(1)
                 # Add .gz extension.
                 new_file = new_file + ".gz"
 
             # Substitute old file name by new file name.
-            if re.match(".*/.*", new_file):
-                file_path = re.sub("/[-\.\w]*/[-\.\w]*$", "/" + new_file, file_path)
-            elif re.match("[^/]*", new_file):
-                file_path = re.sub("/[-\.\w]*$", "/" + new_file, file_path)
+            if re.match(r".*/.*", new_file):
+                file_path = re.sub(r"/[-\.\w]*/[-\.\w]*$", "/" + new_file, file_path)
+            elif re.match(r"[^/]*", new_file):
+                file_path = re.sub(r"/[-\.\w]*$", "/" + new_file, file_path)
 
         p1 = subprocess.Popen(shlex.split(reader + file_path),
                                     stdout=subprocess.PIPE,
@@ -535,11 +539,11 @@ def parse_man_pages(files, builtins, os_id):
     return commands_stored
 
 
-"""
-    Get bash builtin functions
-    @param type string could be 'builtin'
-"""
 def get_os_commands(ctype=None):
+    """
+        Get bash builtin functions
+        @param type string could be 'builtin'
+    """
     command = "compgen -c"
     if (ctype == 'builtin'):
         command = 'compgen -b'
@@ -560,7 +564,7 @@ def get_os_commands(ctype=None):
 
 
     output = output.split('\n')
-    regex = re.compile('[a-zA-Z]')
+    regex = re.compile(r'[a-zA-Z]')
     # FIXME extra colon
     for o in output:
         if not regex.match(o):
@@ -569,11 +573,10 @@ def get_os_commands(ctype=None):
     return output
 
 
-"""
-    Remove commands which are already in database
-"""
 def remove_already_found_cmds(cmds, cmds_in_db):
-
+    """
+        Remove commands which are already in database
+    """
     for cmd in cmds_in_db:
 
         if cmd in cmds:
@@ -582,10 +585,10 @@ def remove_already_found_cmds(cmds, cmds_in_db):
     return cmds
 
 
-"""
-    Call --help on each command which has not been processed yet
-"""
 def handle_helps(os_id, cmds):
+    """
+        Call --help on each command which has not been processed yet
+    """
     help_cont = ''
     timeout = 2
     helps = {}
@@ -606,7 +609,7 @@ def handle_helps(os_id, cmds):
                 timer.cancel()
 
         except OSError:
-            #TODO: correct exception handling
+            err_print("ERROR in running '" + cmd + " --help'.")
             continue
 
         f_list = parse_one_page(help_cont)
@@ -618,10 +621,10 @@ def handle_helps(os_id, cmds):
     return helps
 
 
-"""
-    Parse options
-"""
 def parse_options():
+    """
+        Parse options
+    """
     parser = argparse.ArgumentParser(description="Generate SQLite3 database "
                                      "with all options and switches for all "
                                      "installed commands.")
@@ -665,10 +668,10 @@ def parse_options():
     return prog_args
 
 
-"""
-    Main funciton.
-"""
 def main():
+    """
+        Main funciton.
+    """
     # Parse options
     args = parse_options()
     print("Preparing database file...")
