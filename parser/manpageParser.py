@@ -672,10 +672,17 @@ def main():
     """
         Main funciton.
     """
+
+
+
     # Parse options
     args = parse_options()
-    print("Preparing database file...")
 
+    # Check Python version
+    if sys.version_info[0] != 2:
+        raise Exception("Must be using Python 2")
+
+    print("Preparing database file...")
     # Create empty database in case that db file does not exists
     if os.path.exists(os.path.join(db_path, db_file)):
         open_db()
