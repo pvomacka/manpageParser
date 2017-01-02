@@ -326,7 +326,6 @@ def parse_manpage_number(path):
     return number
 
 
-
 def parse_one_page(content):
     """
         Parse flags from manpage which is in content parameter.
@@ -359,7 +358,6 @@ def parse_one_page(content):
 
     # Return flag which was found.
     return parsed_flags
-
 
 
 def parse_bash_page(content, command_list, os_id):
@@ -407,7 +405,6 @@ def parse_bash_page(content, command_list, os_id):
     for command in mans:
         flags = parse_one_page(mans[command])
         put_manpage_into_db(os_id, None, command, man_group, flags)
-
 
 
 def store_helps(os_id, helps):
@@ -672,8 +669,6 @@ def main():
     """
         Main funciton.
     """
-
-
 
     # Parse options
     args = parse_options()
