@@ -562,7 +562,7 @@ def get_os_commands(ctype=None):
 
     output = output.split('\n')
     regex = re.compile(r'[a-zA-Z]')
-    # FIXME extra colon
+
     for o in output:
         if not regex.match(o):
             output.remove(o)
